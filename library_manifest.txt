@@ -11,6 +11,7 @@ async/conditionaldelay.js
 async/debouncer.js
 async/delay.js
 async/freelist.js
+async/legacy_throttle.js
 async/nexttick.js
 async/promises.js
 async/run.js
@@ -19,6 +20,7 @@ async/workqueue.js
 base.js
 bootstrap/nodejs.js
 bootstrap/webworkers.js
+collections/iters.js
 collections/sets.js
 color/alpha.js
 color/color.js
@@ -383,7 +385,6 @@ json/json_perf.js
 json/jsonable.js
 json/nativejsonprocessor.js
 json/processor.js
-labs/collections/iters.js
 labs/dom/pagevisibilitymonitor.js
 labs/events/nondisposableeventtarget.js
 labs/events/touch.js
@@ -435,6 +436,7 @@ labs/useragent/util.js
 labs/useragent/verifier.js
 loader/abstractmodulemanager.js
 loader/activemodulemanager.js
+loader/noopmodulemanager.js
 locale/countries.js
 locale/defaultlocalenameconstants.js
 locale/genericfontnames.js
@@ -552,7 +554,6 @@ net/xmlhttpfactory.js
 net/xpc/crosspagechannel.js
 net/xpc/crosspagechannelrole.js
 net/xpc/directtransport.js
-net/xpc/iframepollingtransport.js
 net/xpc/nativemessagingtransport.js
 net/xpc/relay.js
 net/xpc/transport.js
@@ -589,10 +590,6 @@ pubsub/pubsub.js
 pubsub/topicid.js
 pubsub/typedpubsub.js
 reflect/reflect.js
-result/dependentresult.js
-result/result_interface.js
-result/resultutil.js
-result/simpleresult.js
 soy/data.js
 soy/renderer.js
 soy/soy.js
@@ -722,6 +719,7 @@ testing/net/mockiframeio.js
 testing/net/xhrio.js
 testing/net/xhriopool.js
 testing/objectpropertystring.js
+testing/objects.js
 testing/parallel_closure_test_suite.js
 testing/performancetable.js
 testing/performancetimer.js
@@ -744,7 +742,6 @@ testing/ui/rendererasserts.js
 testing/ui/rendererharness.js
 testing/ui/style.js
 timer/timer.js
-transitionalforwarddeclarations.js
 transpile.js
 tweak/entries.js
 tweak/registry.js
