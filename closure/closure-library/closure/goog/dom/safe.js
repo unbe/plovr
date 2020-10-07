@@ -124,7 +124,8 @@ goog.dom.safe.isInnerHtmlCleanupRecursive_ =
 /**
  * Assigns HTML to an element's innerHTML property. Helper to use only here and
  * in soy.js.
- * @param {?Element} elem The element whose innerHTML is to be assigned to.
+ * @param {?Element|?ShadowRoot} elem The element whose innerHTML is to be
+ *     assigned to.
  * @param {!goog.html.SafeHtml} html
  */
 goog.dom.safe.unsafeSetInnerHtmlDoNotUseOrElse = function(elem, html) {
@@ -140,13 +141,14 @@ goog.dom.safe.unsafeSetInnerHtmlDoNotUseOrElse = function(elem, html) {
 
 /**
  * Assigns known-safe HTML to an element's innerHTML property.
- * @param {!Element} elem The element whose innerHTML is to be assigned to.
+ * @param {!Element|!ShadowRoot} elem The element whose innerHTML is to be
+ *     assigned to.
  * @param {!goog.html.SafeHtml} html The known-safe HTML to assign.
  * @throws {Error} If called with one of these tags: math, script, style, svg,
  *     template.
  */
 goog.dom.safe.setInnerHtml = function(elem, html) {
-  if (goog.asserts.ENABLE_ASSERTS) {
+  if (goog.asserts.ENABLE_ASSERTS && elem.tagName) {
     var tagName = elem.tagName.toUpperCase();
     if (goog.dom.safe.SET_INNER_HTML_DISALLOWED_TAGS_[tagName]) {
       throw new Error(
@@ -156,6 +158,23 @@ goog.dom.safe.setInnerHtml = function(elem, html) {
   }
 
   goog.dom.safe.unsafeSetInnerHtmlDoNotUseOrElse(elem, html);
+};
+
+
+/**
+ * Assigns constant HTML to an element's innerHTML property.
+ * @param {!Element} element The element whose innerHTML is to be assigned to.
+ * @param {!goog.string.Const} constHtml The known-safe HTML to assign.
+ * @throws {!Error} If called with one of these tags: math, script, style, svg,
+ *     template.
+ */
+goog.dom.safe.setInnerHtmlFromConstant = function(element, constHtml) {
+  goog.dom.safe.setInnerHtml(
+      element,
+      goog.html.uncheckedconversions
+          .safeHtmlFromStringKnownToSatisfyTypeContract(
+              goog.string.Const.from('Constant HTML to be immediatelly used.'),
+              goog.string.Const.unwrap(constHtml)));
 };
 
 
@@ -570,7 +589,7 @@ goog.dom.safe.setScriptSrc = function(script, url) {
  */
 goog.dom.safe.setScriptContent = function(script, content) {
   goog.dom.asserts.assertIsHTMLScriptElement(script);
-  script.text = goog.html.SafeScript.unwrapTrustedScript(content);
+  script.textContent = goog.html.SafeScript.unwrapTrustedScript(content);
   goog.dom.safe.setNonceForScriptElement_(script);
 };
 

@@ -12,8 +12,8 @@
 
 goog.provide('goog.labs.net.webChannel.Channel');
 
-goog.forwardDeclare('goog.labs.net.webChannel.ChannelRequest');
 goog.requireType('goog.Uri');
+goog.requireType('goog.labs.net.webChannel.ChannelRequest');
 goog.requireType('goog.labs.net.webChannel.ConnectionState');
 goog.requireType('goog.net.XhrIo');
 
@@ -27,6 +27,7 @@ goog.labs.net.webChannel.Channel = function() {};
 
 
 goog.scope(function() {
+'use strict';
 const Channel = goog.labs.net.webChannel.Channel;
 
 
@@ -85,6 +86,16 @@ Channel.prototype.isClosed = goog.abstractMethod;
  * @param {string} responseText The text of the response.
  */
 Channel.prototype.onRequestData = goog.abstractMethod;
+
+
+/**
+ * Callback from ChannelRequest for when the first byte of response body has
+ * been received. This is needed for detecting buffering proxies.
+ * @param {!goog.labs.net.webChannel.ChannelRequest} request
+ *     The request object.
+ * @param {string} responseText The text of the response.
+ */
+Channel.prototype.onFirstByteReceived = goog.abstractMethod;
 
 
 /**

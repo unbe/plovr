@@ -12,32 +12,6 @@ goog.provide('goog.object');
 
 
 /**
- * Whether two values are not observably distinguishable. This
- * correctly detects that 0 is not the same as -0 and two NaNs are
- * practically equivalent.
- *
- * The implementation is as suggested by harmony:egal proposal.
- *
- * @param {*} v The first value to compare.
- * @param {*} v2 The second value to compare.
- * @return {boolean} Whether two values are not observably distinguishable.
- * @see http://wiki.ecmascript.org/doku.php?id=harmony:egal
- */
-goog.object.is = function(v, v2) {
-  if (v === v2) {
-    // 0 === -0, but they are not identical.
-    // We need the cast because the compiler requires that v2 is a
-    // number (although 1/v2 works with non-number). We cast to ? to
-    // stop the compiler from type-checking this statement.
-    return v !== 0 || 1 / v === 1 / /** @type {?} */ (v2);
-  }
-
-  // NaN is non-reflexive: NaN !== NaN, although they are identical.
-  return v !== v && v2 !== v2;
-};
-
-
-/**
  * Calls a function for each element in an object/map/hash.
  *
  * @param {Object<K,V>} obj The object over which to iterate.
@@ -506,15 +480,11 @@ goog.object.equals = function(a, b) {
  * @template K,V
  */
 goog.object.clone = function(obj) {
-  // We cannot use the prototype trick because a lot of methods depend on where
-  // the actual key is set.
-
   const res = {};
   for (const key in obj) {
     res[key] = obj[key];
   }
   return res;
-  // We could also use goog.mixin but I wanted this to be independent from that.
 };
 
 
@@ -534,19 +504,18 @@ goog.object.clone = function(obj) {
  * @template T
  */
 goog.object.unsafeClone = function(obj) {
-  const type = goog.typeOf(obj);
-  if (type == 'object' || type == 'array') {
-    if (goog.isFunction(obj.clone)) {
-      return obj.clone();
-    }
-    const clone = type == 'array' ? [] : {};
-    for (const key in obj) {
-      clone[key] = goog.object.unsafeClone(obj[key]);
-    }
-    return clone;
+  if (!obj || typeof obj !== 'object') return obj;
+  if (typeof obj.clone === 'function') return obj.clone();
+  const clone = Array.isArray(obj) ? [] :
+      typeof ArrayBuffer === 'function' &&
+          typeof ArrayBuffer.isView === 'function' && ArrayBuffer.isView(obj) &&
+          !(obj instanceof DataView) ?
+                                     new obj.constructor(obj.length) :
+                                     {};
+  for (const key in obj) {
+    clone[key] = goog.object.unsafeClone(obj[key]);
   }
-
-  return obj;
+  return clone;
 };
 
 

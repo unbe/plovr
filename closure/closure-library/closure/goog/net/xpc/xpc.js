@@ -31,7 +31,6 @@ goog.provide('goog.net.xpc.TransportNames');
 goog.provide('goog.net.xpc.TransportTypes');
 goog.provide('goog.net.xpc.UriCfgFields');
 
-goog.forwardDeclare('goog.net.xpc.CrossPageChannel');  // circular
 goog.require('goog.log');
 
 
@@ -42,8 +41,7 @@ goog.require('goog.log');
 goog.net.xpc.TransportTypes = {
   UNDEFINED: 0,
   NATIVE_MESSAGING: 1,
-  IFRAME_POLLING: 2,
-  DIRECT: 3,
+  DIRECT: 2,
 };
 
 
@@ -54,8 +52,7 @@ goog.net.xpc.TransportTypes = {
  */
 goog.net.xpc.TransportNames = {
   '1': 'NativeMessagingTransport',
-  '2': 'IframePollingTransport',
-  '3': 'DirectTransport',
+  '2': 'DirectTransport',
 };
 
 
@@ -237,14 +234,6 @@ goog.net.xpc.SETUP_ACK_ = 'SETUP_ACK';
  * @type {string}
  */
 goog.net.xpc.SETUP_ACK_NTPV2 = 'SETUP_ACK_NTPV2';
-
-
-/**
- * Object holding active channels.
- *
- * @package {Object<string, goog.net.xpc.CrossPageChannel>}
- */
-goog.net.xpc.channels = {};
 
 
 /**

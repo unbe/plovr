@@ -28,6 +28,14 @@ goog.debug.FORCE_SLOPPY_STACKS =
 
 
 /**
+ * @define {boolean} TODO(user): Remove this hack once bug is resolved.
+ */
+goog.debug.CHECK_FOR_THROWN_EVENT =
+    goog.define('goog.debug.CHECK_FOR_THROWN_EVENT', false);
+
+
+
+/**
  * Catches onerror events fired by windows and similar objects.
  * @param {function(Object)} logFunc The function to call with the error
  *    information.
@@ -274,6 +282,8 @@ goog.debug.normalizeErrorObject = function(err) {
     threwError = true;
   }
 
+  var stack = goog.debug.serializeErrorStack_(err);
+
   // The IE Error object contains only the name and the message.
   // The Safari Error object uses the line and sourceURL fields.
   if (threwError || !err.lineNumber || !err.fileName || !err.stack ||
@@ -285,8 +295,23 @@ goog.debug.normalizeErrorObject = function(err) {
             err.constructor.name :
             goog.debug.getFunctionName(err.constructor);
         message = 'Unknown Error of type "' + ctorName + '"';
+        // TODO(user): Remove this hack once bug is resolved.
+        if (goog.debug.CHECK_FOR_THROWN_EVENT && ctorName == 'Event') {
+          try {
+            message = message + ' with Event.type "' + (err.type || '') + '"';
+          } catch (e) {
+            // Just give up on getting more information out of the error object.
+          }
+        }
       } else {
         message = 'Unknown Error of unknown type';
+      }
+
+      // Avoid TypeError since toString could be missing from the instance
+      // (e.g. if created Object.create(null)).
+      if (typeof err.toString === 'function' &&
+          Object.prototype.toString !== err.toString) {
+        message += ': ' + err.toString();
       }
     }
     return {
@@ -294,13 +319,64 @@ goog.debug.normalizeErrorObject = function(err) {
       'name': err.name || 'UnknownError',
       'lineNumber': lineNumber,
       'fileName': fileName,
-      'stack': err.stack || 'Not available'
+      'stack': stack || 'Not available'
     };
   }
-
   // Standards error object
   // Typed !Object. Should be a subtype of the return type, but it's not.
+  err.stack = stack;
   return /** @type {?} */ (err);
+};
+
+
+/**
+ * Serialize stack by including the cause chain of the exception if it exists.
+ *
+ *
+ * @param {*} e an exception that may have a cause
+ * @param {!Object=} seen set of cause that have already been serialized
+ * @return {string}
+ * @private
+ * @suppress {missingProperties} properties not defined on cause and e
+ */
+goog.debug.serializeErrorStack_ = function(e, seen) {
+  if (!seen) {
+    seen = {};
+  }
+  seen[goog.debug.serializeErrorAsKey_(e)] = true;
+
+  var stack = e['stack'] || '';
+
+  // Add cause if exists.
+  var cause = e.cause;
+  if (cause && !seen[goog.debug.serializeErrorAsKey_(cause)]) {
+    stack += '\nCaused by: ';
+    // Some browsers like Chrome add the error message as the first frame of the
+    // stack, In this case we don't need to add it. Note: we don't use
+    // String.startsWith method because it might have to be polyfilled.
+    if (!cause.stack || cause.stack.indexOf(cause.toString()) != 0) {
+      stack += (typeof cause === 'string') ? cause : cause.message + '\n';
+    }
+    stack += goog.debug.serializeErrorStack_(cause, seen);
+  }
+
+  return stack;
+};
+
+/**
+ * Serialize an error to a string key.
+ * @param {*} e an exception
+ * @return {string}
+ * @private
+ */
+goog.debug.serializeErrorAsKey_ = function(e) {
+  var keyPrefix = '';
+
+  if (typeof e.toString === 'function') {
+    keyPrefix = '' + e;
+  }
+
+  return keyPrefix + e['stack'];
 };
 
 

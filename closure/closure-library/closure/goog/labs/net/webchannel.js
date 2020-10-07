@@ -29,6 +29,7 @@
  */
 
 goog.provide('goog.net.WebChannel');
+goog.provide('goog.net.WebChannel.Options');
 
 goog.require('goog.events');
 goog.require('goog.events.Event');
@@ -46,7 +47,6 @@ goog.require('goog.net.XmlHttpFactory');
  * to be enabled.
  *
  * @interface
- * @extends {EventTarget}
  * @extends {goog.events.Listenable}
  */
 goog.net.WebChannel = function() {};
@@ -184,6 +184,18 @@ goog.net.WebChannel.Options.prototype.backgroundChannelTest;
 goog.net.WebChannel.Options.prototype.forceLongPolling;
 
 /**
+ * Whether to enable automatic detection of buffering proxies. In the presence
+ * of any buffering proxy, webchannel will use long-polling to send messages
+ * from the server to the client. This option defaults to false.
+ * Currently when fastHandshake is enabled, this option will be ignored.
+ * Compared to "forceLongPolling", this option may introduce up to 2-RTT
+ * extra latency for delivering messages generated immediately after the
+ * handshake.
+ * @type {boolean|undefined}
+ */
+goog.net.WebChannel.Options.prototype.detectBufferingProxy;
+
+/**
  * Enable true 0-RTT message delivery, including
  * leveraging QUIC 0-RTT (which requires GET to be used). This option
  * defaults to false. Note it is allowed to send messages before Open event is
@@ -253,6 +265,25 @@ goog.net.WebChannel.Options.prototype.xmlHttpFactory;
  * @type {!Object<string, number>|undefined}
  */
 goog.net.WebChannel.Options.prototype.requestRefreshThresholds;
+
+/**
+ * Opt-in to enable Chrome origin trials from the WebChannel client. See
+ * https://github.com/GoogleChrome/OriginTrials
+ *
+ * Origin trial history:
+ * - fetch upload (07/2020 - 01/2021)
+ * https://developers.chrome.com/origintrials/#/view_trial/3524066708417413121
+ *
+ * Participating in the origin trials will help Chrome to release new Web
+ * platform features sooner, which will in turn help improve WebChannel
+ * performance.
+ *
+ * Origin trials are not expected to interfere with WebChannel wire messages
+ * and should not introduce any noticeable overhead.
+ *
+ * @type {boolean|undefined}
+ */
+goog.net.WebChannel.Options.prototype.enableOriginTrials;
 
 
 /**

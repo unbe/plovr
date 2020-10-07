@@ -314,6 +314,17 @@ testSuite({
             .getTypedStringValue());
   },
 
+  testCloneWithParams_withMonkeypatchedObjectPrototype() {
+    stubs.set(Object.prototype, 'foo', 'bar');
+    const url =
+        TrustedResourceUrl.fromConstant(Const.from('https://example.com/'));
+    assertEquals(
+        'https://example.com/?a=%3F%23%26&b=1&e=x&e=y',
+        url.cloneWithParams(
+               {'a': '?#&', 'b': 1, 'c': null, 'd': undefined, 'e': ['x', 'y']})
+            .getTypedStringValue());
+  },
+
   testFormatWithParams() {
     let url = TrustedResourceUrl.formatWithParams(
         Const.from('https://example.com/'), {}, {'a': '&'});
@@ -350,15 +361,11 @@ testSuite({
   testUnwrap() {
     const privateFieldName =
         'privateDoNotAccessOrElseTrustedResourceUrlWrappedValue_';
-    const markerFieldName =
-        'TRUSTED_RESOURCE_URL_TYPE_MARKER_GOOG_HTML_SECURITY_PRIVATE_';
     const propNames =
         googObject.getKeys(TrustedResourceUrl.fromConstant(Const.from('')));
     assertContains(privateFieldName, propNames);
-    assertContains(markerFieldName, propNames);
     const evil = {};
     evil[privateFieldName] = 'http://example.com/evil.js';
-    evil[markerFieldName] = {};
 
     const exception = assertThrows(() => {
       TrustedResourceUrl.unwrap(evil);
@@ -367,15 +374,24 @@ testSuite({
         'expected object of type TrustedResourceUrl', exception.message);
   },
 
-  testUnwrapTrustedScriptURL() {
-    let safeValue =
+  testUnwrapTrustedScriptURL_policyIsNull() {
+    stubs.set(trustedtypes, 'getPolicyPrivateDoNotAccessOrElse', function() {
+      return null;
+    });
+    const safeValue =
         TrustedResourceUrl.fromConstant(Const.from('https://example.com/'));
-    let trustedValue = TrustedResourceUrl.unwrapTrustedScriptURL(safeValue);
+    const trustedValue = TrustedResourceUrl.unwrapTrustedScriptURL(safeValue);
+    assertEquals('string', typeof trustedValue);
     assertEquals(safeValue.getTypedStringValue(), trustedValue);
-    stubs.set(trustedtypes, 'PRIVATE_DO_NOT_ACCESS_OR_ELSE_POLICY', policy);
-    safeValue =
+  },
+
+  testUnwrapTrustedScriptURL_policyIsSet() {
+    stubs.set(trustedtypes, 'getPolicyPrivateDoNotAccessOrElse', function() {
+      return policy;
+    });
+    const safeValue =
         TrustedResourceUrl.fromConstant(Const.from('https://example.com/'));
-    trustedValue = TrustedResourceUrl.unwrapTrustedScriptURL(safeValue);
+    const trustedValue = TrustedResourceUrl.unwrapTrustedScriptURL(safeValue);
     assertEquals(safeValue.getTypedStringValue(), trustedValue.toString());
     assertTrue(
         goog.global.TrustedScriptURL ?

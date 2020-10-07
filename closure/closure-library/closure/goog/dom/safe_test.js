@@ -65,7 +65,7 @@ testSuite({
     const mockNode = /** @type {!Node} */ ({
       'insertAdjacentHTML': function(position, html) {
         writtenPosition = position;
-        writtenHtml = html;
+        writtenHtml = html.toString();
       },
     });
 
@@ -83,7 +83,7 @@ testSuite({
         '/script>';
     const safeHtml = testing.newSafeHtmlForTest(html);
     safe.setInnerHtml(mockElement, safeHtml);
-    assertEquals(html, mockElement.innerHTML);
+    assertEquals(html, mockElement.innerHTML.toString());
   },
 
   testSetInnerHtml_doesntAllowScript() {
@@ -143,6 +143,13 @@ testSuite({
         grandchildDiv.parentElement);
   },
 
+  testSetInnerHtmlFromConstant() {
+    const element = document.createElement('div');
+    const html = '<b>c</b>';
+    safe.setInnerHtmlFromConstant(element, Const.from(html));
+    assertEquals(html, element.innerHTML);
+  },
+
   testSetStyle() {
     const style = SafeStyle.fromConstant(Const.from('color: red;'));
     const elem = document.createElement('div');
@@ -157,7 +164,7 @@ testSuite({
       'html': null,
       /** @suppress {globalThis} */
       'write': function(html) {
-        this['html'] = html;
+        this['html'] = html.toString();
       },
     });
     const html = '<script>somethingTrusted();<' +
@@ -570,7 +577,7 @@ testSuite({
         TrustedResourceUrl.fromConstant(Const.from('javascript:trusted();'));
     const mockElement = /** @type {!HTMLEmbedElement} */ ({'src': 'blarg'});
     safe.setEmbedSrc(mockElement, url);
-    assertEquals('javascript:trusted();', mockElement.src);
+    assertEquals('javascript:trusted();', mockElement.src.toString());
 
     // Asserts correct runtime type.
     if (!userAgent.IE || userAgent.isVersionOrHigher(10)) {
@@ -626,7 +633,7 @@ testSuite({
     const html = SafeHtml.create('div', {}, 'foobar');
     const mockIframe = /** @type {!HTMLIFrameElement} */ ({'srcdoc': ''});
     safe.setIframeSrcdoc(mockIframe, html);
-    assertEquals('<div>foobar</div>', mockIframe.srcdoc);
+    assertEquals('<div>foobar</div>', mockIframe.srcdoc.toString());
 
     // Asserts correct runtime type.
     if (!userAgent.IE || userAgent.isVersionOrHigher(10)) {
@@ -645,7 +652,7 @@ testSuite({
         TrustedResourceUrl.fromConstant(Const.from('javascript:trusted();'));
     const mockElement = /** @type {!HTMLObjectElement} */ ({'data': 'blarg'});
     safe.setObjectData(mockElement, url);
-    assertEquals('javascript:trusted();', mockElement.data);
+    assertEquals('javascript:trusted();', mockElement.data.toString());
 
     // Asserts correct runtime type.
     if (!userAgent.IE || userAgent.isVersionOrHigher(10)) {
@@ -669,18 +676,22 @@ testSuite({
         this[attr] = value;
       },
     });
-    // clear nonce cache for test.
-    /** @type {?} */ (goog).cspNonce_ = null;
+    let nonce = goog.getScriptNonce();
+    if (!nonce) {
+      // clear nonce cache for test.
+      /** @type {?} */ (goog).cspNonce_ = null;
 
-    // Place a nonced script in the page.
-    const nonce = 'ThisIsANonceThisIsANonceThisIsANonce';
+      // Place a nonced script in the page.
+      nonce = 'ThisIsANonceThisIsANonceThisIsANonce';
+    }
+
     const noncedScript = dom.createElement(TagName.SCRIPT);
     noncedScript.setAttribute('nonce', nonce);
     document.body.appendChild(noncedScript);
     safe.setScriptSrc(mockElement, url);
 
     try {
-      assertEquals('javascript:trusted();', mockElement.src);
+      assertEquals('javascript:trusted();', mockElement.src.toString());
       assertEquals(nonce, mockElement.nonce);
     } finally {
       dom.removeNode(noncedScript);
@@ -703,7 +714,11 @@ testSuite({
     // clear nonce cache for test.
     /** @type {?} */ (goog).cspNonce_ = null;
     // create the iframe and set up a script inside the iframe.
-    const nonce = 'ThisIsANonceThisIsANonceThisIsANonce';
+    let nonce = goog.getScriptNonce();
+    if (!nonce) {
+      nonce = 'ThisIsANonceThisIsANonceThisIsANonce';
+    }
+
     const iframe = dom.createElement(TagName.IFRAME);
     document.body.appendChild(iframe);
     const iframeWindow = iframe.contentWindow;
@@ -723,7 +738,7 @@ testSuite({
     });
     safe.setScriptSrc(mockElement, url);
     try {
-      assertEquals('javascript:trusted();', mockElement.src);
+      assertEquals('javascript:trusted();', mockElement.src.toString());
       assertEquals(nonce, mockElement.nonce);
     } finally {
       dom.removeNode(iframe);
@@ -741,7 +756,13 @@ testSuite({
     /** @type {?} */ (goog).cspNonce_ = null;
 
     // Place a nonced script in the page.
-    const nonce = 'ThisIsANonceThisIsANonceThisIsANonce';
+    let nonce = goog.getScriptNonce();
+    if (!nonce) {
+      nonce = 'ThisIsANonceThisIsANonceThisIsANonce';
+    }
+
+    /** @type {?} */ (goog).cspNonce_ = null;
+
     const noncedScript = dom.createElement(TagName.SCRIPT);
     noncedScript.setAttribute('nonce', nonce);
     document.body.appendChild(noncedScript);
@@ -749,10 +770,33 @@ testSuite({
     safe.setScriptContent(mockScriptElement, content);
 
     try {
-      assertEquals(SafeScript.unwrap(content), mockScriptElement.text);
+      assertEquals(
+          SafeScript.unwrap(content), mockScriptElement.textContent.toString());
       assertEquals(nonce, mockScriptElement.nonce);
     } finally {
       dom.removeNode(noncedScript);
+    }
+  },
+
+  testSetScriptContentWithSpecialCharacters() {
+    const scriptElement = dom.createElement(TagName.SCRIPT);
+    document.body.appendChild(scriptElement);
+    const TEST_PROPERTY = 'scriptContentTestProperty';
+    const content = SafeScript.fromConstant(Const.from(`
+      // Comment to ensure newlines are preserved.
+      window.${TEST_PROPERTY} = 'tricky<{}>value';
+    `));
+    safe.setScriptContent(scriptElement, content);
+
+    try {
+      assertEquals(SafeScript.unwrap(content), scriptElement.text);
+      assertEquals('tricky<{}>value', window[TEST_PROPERTY]);
+
+      // Ensure no <br> tags were inserted into the script tag.
+      assertEquals(1, scriptElement.childNodes.length);
+    } finally {
+      dom.removeNode(scriptElement);
+      delete window[TEST_PROPERTY];
     }
   },
 

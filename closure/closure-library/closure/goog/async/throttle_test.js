@@ -9,6 +9,7 @@ goog.setTestOnly();
 const MockClock = goog.require('goog.testing.MockClock');
 const Throttle = goog.require('goog.async.Throttle');
 const testSuite = goog.require('goog.testing.testSuite');
+const {assertDoesNotRetainReference, assertRetainsReference} = goog.require('goog.testing.objects');
 
 testSuite({
   testThrottle() {
@@ -153,4 +154,27 @@ testSuite({
 
     mockClock.uninstall();
   },
+
+  // Ensure that after the listener is invoked, the arguments are released.
+  testThrottleArgumentsAreReleased() {
+    const x = {calls: 0};
+    const arg = {someProperty: 'foo'};
+    const throttle = new Throttle((obj) => {
+      assertEquals('foo', obj.someProperty);
+      x.calls++;
+    }, 1);
+    // set up a pending call.
+    throttle.pause();
+    throttle.fire(arg);
+    assertEquals(0, x.calls);
+    // sanity check that our search algorithm can find the value
+    assertRetainsReference(throttle, arg);
+
+    // invoke the call
+    throttle.resume();
+    assertEquals(1, x.calls);
+    // now make sure that throttle doesn't retain a reference to 'arg'
+    assertDoesNotRetainReference(throttle, arg);
+  },
+
 });

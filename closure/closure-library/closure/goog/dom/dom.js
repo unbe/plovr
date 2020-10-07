@@ -37,6 +37,7 @@ goog.require('goog.math.Coordinate');
 goog.require('goog.math.Size');
 goog.require('goog.object');
 goog.require('goog.string');
+goog.require('goog.string.Const');
 goog.require('goog.string.Unicode');
 goog.require('goog.userAgent');
 
@@ -1279,6 +1280,26 @@ goog.dom.replaceNode = function(newNode, oldNode) {
   var parent = oldNode.parentNode;
   if (parent) {
     parent.replaceChild(newNode, oldNode);
+  }
+};
+
+
+/**
+ * Replaces child nodes of `target` with child nodes of `source`. This is
+ * roughly equivalent to `target.innerHTML = source.innerHTML` which is not
+ * compatible with Trusted Types.
+ * @param {?Node} target Node to clean and replace its children.
+ * @param {?Node} source Node to get the children from. The nodes will be cloned
+ *     so they will stay in source.
+ */
+goog.dom.copyContents = function(target, source) {
+  goog.asserts.assert(
+      target != null && source != null,
+      'goog.dom.copyContents expects non-null arguments');
+  var childNodes = source.cloneNode(/* deep= */ true).childNodes;
+  goog.dom.removeChildren(target);
+  while (childNodes.length) {
+    target.appendChild(childNodes[0]);
   }
 };
 
@@ -2949,6 +2970,17 @@ goog.dom.DomHelper.prototype.removeNode = goog.dom.removeNode;
  * @param {Node} oldNode Node to replace.
  */
 goog.dom.DomHelper.prototype.replaceNode = goog.dom.replaceNode;
+
+
+/**
+ * Replaces child nodes of `target` with child nodes of `source`. This is
+ * roughly equivalent to `target.innerHTML = source.innerHTML` which is not
+ * compatible with Trusted Types.
+ * @param {?Node} target Node to clean and replace its children.
+ * @param {?Node} source Node to get the children from. The nodes will be cloned
+ *     so they will stay in source.
+ */
+goog.dom.DomHelper.prototype.copyContents = goog.dom.copyContents;
 
 
 /**

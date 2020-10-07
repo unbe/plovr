@@ -62,13 +62,10 @@ testSuite({
   /** @suppress {checkTypes} */
   testUnwrap() {
     const privateFieldName = 'privateDoNotAccessOrElseSafeHtmlWrappedValue_';
-    const markerFieldName = 'SAFE_HTML_TYPE_MARKER_GOOG_HTML_SECURITY_PRIVATE_';
     const propNames = googObject.getKeys(SafeHtml.htmlEscape(''));
     assertContains(privateFieldName, propNames);
-    assertContains(markerFieldName, propNames);
     const evil = {};
     evil[privateFieldName] = '<script>evil()</script';
-    evil[markerFieldName] = {};
 
     const exception = assertThrows(() => {
       SafeHtml.unwrap(evil);
@@ -76,13 +73,22 @@ testSuite({
     assertContains('expected object of type SafeHtml', exception.message);
   },
 
-  testUnwrapTrustedHTML() {
-    let safeValue = SafeHtml.htmlEscape('HTML');
-    let trustedValue = SafeHtml.unwrapTrustedHTML(safeValue);
+  testUnwrapTrustedHTML_policyIsNull() {
+    stubs.set(trustedtypes, 'getPolicyPrivateDoNotAccessOrElse', function() {
+      return null;
+    });
+    const safeValue = SafeHtml.htmlEscape('HTML');
+    const trustedValue = SafeHtml.unwrapTrustedHTML(safeValue);
+    assertEquals('string', typeof trustedValue);
     assertEquals(safeValue.getTypedStringValue(), trustedValue);
-    stubs.set(trustedtypes, 'PRIVATE_DO_NOT_ACCESS_OR_ELSE_POLICY', policy);
-    safeValue = SafeHtml.htmlEscape('HTML');
-    trustedValue = SafeHtml.unwrapTrustedHTML(safeValue);
+  },
+
+  testUnwrapTrustedHTML_policyIsSet() {
+    stubs.set(trustedtypes, 'getPolicyPrivateDoNotAccessOrElse', function() {
+      return policy;
+    });
+    const safeValue = SafeHtml.htmlEscape('HTML');
+    const trustedValue = SafeHtml.unwrapTrustedHTML(safeValue);
     assertEquals(safeValue.getTypedStringValue(), trustedValue.toString());
     assertTrue(
         goog.global.TrustedHTML ? trustedValue instanceof TrustedHTML :
@@ -316,6 +322,15 @@ testSuite({
         SafeHtml.createIframe(null, null, {'sandbox': null}, '<'));
   },
 
+  testSafeHtmlCreateIframe_withMonkeypatchedObjectPrototype() {
+    stubs.set(Object.prototype, 'foo', 'bar');
+    const url = TrustedResourceUrl.fromConstant(
+        Const.from('https://google.com/trusted<'));
+    assertSameHtml(
+        '<iframe src="https://google.com/trusted&lt;"></iframe>',
+        SafeHtml.createIframe(url, null, {'sandbox': null}));
+  },
+
   /** @suppress {checkTypes} */
   testSafeHtmlcreateSandboxIframe() {
     function assertSameHtmlIfSupportsSandbox(
@@ -420,6 +435,13 @@ testSuite({
 
     // Directionality.
     assertEquals(Dir.NEUTRAL, scriptHtml.getDirection());
+  },
+
+  testSafeHtmlCreateScript_withMonkeypatchedObjectPrototype() {
+    stubs.set(Object.prototype, 'foo', 'bar');
+    stubs.set(Object.prototype, 'type', 'baz');
+    const scriptHtml = SafeHtml.createScript(SafeScript.EMPTY, {'id': null});
+    assertSameHtml('<script></script>', scriptHtml);
   },
 
   /** @suppress {checkTypes} */

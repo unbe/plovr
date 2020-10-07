@@ -46,6 +46,11 @@ goog.require('goog.style');
 goog.require('goog.ui.Component');
 goog.require('goog.ui.Menu');
 goog.require('goog.ui.PopupBase');
+goog.requireType('goog.dom.DomHelper');
+goog.requireType('goog.events.Event');
+goog.requireType('goog.math.Box');
+goog.requireType('goog.positioning.AbstractPosition');
+goog.requireType('goog.ui.MenuRenderer');
 
 
 
@@ -641,7 +646,6 @@ goog.ui.PopupMenu.prototype.onDocClick = function(e) {
 /**
  * Handles the key event target losing focus.
  * @param {?goog.events.BrowserEvent} e The browser event.
- * @protected
  * @override
  */
 goog.ui.PopupMenu.prototype.handleBlur = function(e) {

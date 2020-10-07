@@ -39,6 +39,7 @@ goog.require('goog.ui.editor.TabPane');
 goog.require('goog.ui.editor.messages');
 goog.require('goog.userAgent');
 goog.require('goog.window');
+goog.requireType('goog.ui.Tab');
 
 
 
@@ -976,7 +977,6 @@ goog.ui.editor.LinkDialog.prototype.onChangeTab_ = function(e) {
 
   // For some reason, IE does not fire onpropertychange events when the width
   // is specified as a percentage, which breaks the InputHandlers.
-  input.style.width = '';
   input.style.width = input.offsetWidth + 'px';
 
   this.syncOkButton_();

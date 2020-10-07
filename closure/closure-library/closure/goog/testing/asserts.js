@@ -9,9 +9,6 @@ goog.setTestOnly();
 
 goog.require('goog.testing.JsUnitException');
 
-// TODO(user): Copied from JsUnit with some small modifications, we should
-// reimplement the asserters.
-
 var DOUBLE_EQUALITY_PREDICATE = function(var1, var2) {
   return var1 == var2;
 };
@@ -145,9 +142,13 @@ var _displayStringForValue = function(aVar) {
 
 /** @param {?} failureMessage */
 goog.testing.asserts.fail = function(failureMessage) {
-  goog.testing.asserts.raiseException('Call to fail()', failureMessage);
+  _assert('Call to fail()', false, failureMessage);
 };
-/** @const */
+/**
+ * @const
+ * @suppress {duplicate,checkTypes} Test frameworks like Jasmine may also
+ * define global fail functions.
+ */
 var fail = goog.testing.asserts.fail;
 
 var argumentsIncludeComments = function(expectedNumberOfNonCommentArgs, args) {
@@ -205,6 +206,17 @@ var _getCurrentTestCase = function() {
 };
 
 var _assert = function(comment, booleanValue, failureMessage) {
+  // If another framework has installed an adapter, tell it about the assertion.
+  var adapter =
+      typeof window !== 'undefined' && window['Closure assert adapter'];
+  if (adapter) {
+    adapter['assertWithMessage'](
+        booleanValue,
+        goog.testing.JsUnitException.generateMessage(comment, failureMessage));
+    // Also throw an error, for callers that assume that asserts throw. We don't
+    // include error details to avoid duplicate failure messages.
+    if (!booleanValue) throw new Error('goog.testing assertion failed');
+  }
   if (!booleanValue) {
     goog.testing.asserts.raiseException(comment, failureMessage);
   }
@@ -407,7 +419,8 @@ goog.testing.asserts.assertThrowsJsUnitException = function(
     }
 
     if (!e.isJsUnitException) {
-      goog.testing.asserts.fail('Expected a JsUnitException');
+      goog.testing.asserts.fail(
+          'Expected a JsUnitException, got \'' + e + '\' instead');
     }
 
     if (typeof opt_expectedMessage != 'undefined' &&

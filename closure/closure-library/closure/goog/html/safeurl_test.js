@@ -19,6 +19,7 @@ const googObject = goog.require('goog.object');
 const safeUrlTestVectors = goog.require('goog.html.safeUrlTestVectors');
 const testSuite = goog.require('goog.testing.testSuite');
 const userAgent = goog.require('goog.userAgent');
+const {assertExists} = goog.require('goog.asserts');
 
 
 /** @return {boolean} True if running on IE9 or lower. */
@@ -337,13 +338,10 @@ testSuite({
   /** @suppress {checkTypes} */
   testUnwrap() {
     const privateFieldName = 'privateDoNotAccessOrElseSafeUrlWrappedValue_';
-    const markerFieldName = 'SAFE_URL_TYPE_MARKER_GOOG_HTML_SECURITY_PRIVATE_';
     const propNames = googObject.getKeys(SafeUrl.sanitize(''));
     assertContains(privateFieldName, propNames);
-    assertContains(markerFieldName, propNames);
     const evil = {};
     evil[privateFieldName] = 'javascript:evil()';
-    evil[markerFieldName] = {};
 
     const exception = assertThrows(() => {
       SafeUrl.unwrap(evil);
@@ -351,14 +349,29 @@ testSuite({
     assertContains('expected object of type SafeUrl', exception.message);
   },
 
-  testSafeUrlSanitize_sanitizeUrl() {
-    const vectors = safeUrlTestVectors.BASE_VECTORS;
-    for (let i = 0; i < vectors.length; ++i) {
-      const v = vectors[i];
+  testSafeUrlSanitize_trySanitize() {
+    for (const v of safeUrlTestVectors.BASE_VECTORS) {
       const isDataUrl = v.input.match(/^data:/i);
-      const observed =
-          isDataUrl ? SafeUrl.fromDataUrl(v.input) : SafeUrl.sanitize(v.input);
+      const observed = isDataUrl ? SafeUrl.tryFromDataUrl(v.input) :
+                                   SafeUrl.trySanitize(v.input);
+      if (v.safe) {
+        assertEquals(v.expected, SafeUrl.unwrap(assertExists(observed)));
+      } else {
+        assertNull(observed);
+      }
+    }
+  },
+
+  testSafeUrlSanitize_sanitize() {
+    for (const v of safeUrlTestVectors.BASE_VECTORS) {
+      const observed = SafeUrl.sanitize(v.input);
       assertEquals(v.expected, SafeUrl.unwrap(observed));
+    }
+  },
+
+  testSafeUrlSanitize_sanitizeAssertUnchanged() {
+    for (const v of safeUrlTestVectors.BASE_VECTORS) {
+      const isDataUrl = v.input.match(/^data:/i);
       if (v.safe) {
         const asserted = SafeUrl.sanitizeAssertUnchanged(v.input, isDataUrl);
         assertEquals(v.expected, SafeUrl.unwrap(asserted));

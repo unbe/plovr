@@ -16,6 +16,7 @@ goog.provide('goog.module.ModuleManager.FailureType');
 goog.require('goog.array');
 goog.require('goog.asserts');
 goog.require('goog.async.Deferred');
+goog.require('goog.debug.Error');
 goog.require('goog.debug.Trace');
 goog.require('goog.disposable.IDisposable');
 goog.require('goog.disposeAll');
@@ -27,6 +28,7 @@ goog.require('goog.module');
 goog.require('goog.module.ModuleInfo');
 goog.require('goog.module.ModuleLoadCallback');
 goog.require('goog.object');
+goog.requireType('goog.module.AbstractModuleLoader');
 
 
 /**
@@ -90,6 +92,12 @@ goog.module.ModuleManager = function() {
    * @private
    */
   this.userInitiatedLoadingModuleIds_ = [];
+
+  /**
+   * @private @const {!goog.module.AbstractModuleLoader.ExtraEdgesMap} Map of
+   *     extra edges to traverse in the module graph
+   */
+  this.extraEdges_ = {};
 
   /**
    * A map of callback types to the functions to call for the specified
@@ -191,6 +199,23 @@ goog.module.ModuleManager = function() {
   this.isDisposed_ = false;
 };
 goog.inherits(goog.module.ModuleManager, goog.loader.AbstractModuleManager);
+
+
+/**
+ * Error used to indicate a module has failed.
+ *
+ * @param {?goog.loader.AbstractModuleManager.FailureType} failureType
+ * @constructor
+ * @extends {goog.debug.Error}
+ * @final
+ */
+goog.module.ModuleManager.ModuleFailureError = function(failureType) {
+  goog.module.ModuleManager.ModuleFailureError.base(this, 'constructor');
+
+  /** @type {?goog.loader.AbstractModuleManager.FailureType} */
+  this.failureType = failureType;
+};
+goog.inherits(goog.module.ModuleManager.ModuleFailureError, goog.debug.Error);
 
 
 /**
@@ -327,6 +352,28 @@ goog.module.ModuleManager.prototype.getModuleInfo = function(id) {
     this.moduleInfoMap[id] = new goog.module.ModuleInfo([], id);
   }
   return this.moduleInfoMap[id];
+};
+
+
+/** @override */
+goog.module.ModuleManager.prototype.addExtraEdge = function(
+    fromModule, toModule) {
+  if (!this.getLoader().supportsExtraEdges) {
+    throw new Error('Extra edges are not supported by the module loader.');
+  }
+  if (!this.extraEdges_[fromModule]) {
+    this.extraEdges_[fromModule] = {};
+  }
+  this.extraEdges_[fromModule][toModule] = true;
+};
+
+/** @override */
+goog.module.ModuleManager.prototype.removeExtraEdge = function(
+    fromModule, toModule) {
+  if (!this.extraEdges_[fromModule]) {
+    return;
+  }
+  delete this.extraEdges_[fromModule][toModule];
 };
 
 
@@ -521,7 +568,7 @@ goog.module.ModuleManager.prototype.registerModuleLoadCallbacks_ = function(
     id, moduleInfo, userInitiated, d) {
   moduleInfo.registerCallback(d.callback, d);
   moduleInfo.registerErrback(function(err) {
-    d.errback(Error(err));
+    d.errback(new goog.module.ModuleManager.ModuleFailureError(err));
   });
   // If it's already loading, we don't have to do anything besides handle
   // if it was user initiated
@@ -642,6 +689,7 @@ goog.module.ModuleManager.prototype.loadModules_ = function(
       this.getLoader().loadModules, goog.asserts.assert(this.getLoader()),
       goog.array.clone(idsToLoadImmediately),
       goog.asserts.assert(this.moduleInfoMap), {
+        extraEdges: this.extraEdges_,
         forceReload: !!opt_forceReload,
         onError: goog.bind(
             this.handleLoadError_, this, this.requestedLoadingModuleIds_,

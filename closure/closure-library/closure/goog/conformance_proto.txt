@@ -46,7 +46,7 @@ requirement: {
   whitelist_regexp: '.+/closure/goog/locale/locale.js' # dumb api
   whitelist_regexp: '.+/closure/goog/testing/' # global assert methods, etc
   whitelist_regexp: '.+/closure/goog/tweak/testhelpers.js' # global values
-  whitelist_regexp: '^Post.*_module$' # injected '_ModuleManager_initialize'
+  whitelist_regexp: '^Post-' # injected '_ModuleManager_initialize'
 }
 
 requirement: {
@@ -62,7 +62,6 @@ requirement: {
   whitelist_regexp: '.+/closure/goog/functions/functions.js'
   whitelist_regexp: '.+/closure/goog/memoize/memoize.js'
   whitelist_regexp: '.+/closure/goog/pubsub/pubsub.js'
-  whitelist_regexp: '.+/closure/goog/result/resultutil.js'
   whitelist_regexp: '.+/closure/goog/testing/'
   whitelist_regexp: '.+/closure/goog/ui/editor/bubble.js'
   whitelist_regexp: '.+/closure/goog/ui/editor/toolbarcontroller.js'
@@ -307,9 +306,7 @@ requirement: {
   value: 'Location.prototype.href'
 
   whitelist_regexp: '.+/closure/goog/dom/safe.js'
-  # URL is sanitized in goog.net.xpc.IframePollingTransport.Sender, before
-  # being assigned to .href.
-  whitelist_regexp: '.+/closure/goog/net/xpc/iframepollingtransport.js'
+
   # The following whitelist entries are due to usages of .href that still
   # need to be refactored or reviewed. See http://b/12014412.
   whitelist_regexp: '.+/closure/goog/history/history.js'
@@ -402,7 +399,9 @@ requirement: {
   value: '*.innerHTML'
   value: '*.outerHTML'
 
+  whitelist_regexp: '.+/closure/tweak/tweakui.js' # False positive - missing type on containerNodeName. MOE:strip_line
   whitelist_regexp: '.+/closure/goog/tweak/tweakui.js' # False positive - missing type on containerNodeName.
+
   # TODO(jakubvrana): Ban this.
   whitelist_regexp: '.+/closure/goog/ui/abstractspellchecker.js'
 }
