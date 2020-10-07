@@ -17,7 +17,7 @@ REPOSITORY="closure-library"
 COMMIT=$1
 
 set -ex
-git subtree pull --prefix="closure/${REPOSITORY}" "git@github.com:google/${REPOSITORY}" "$COMMIT"
+git subtree pull --prefix="closure/${REPOSITORY}" "https://github.com/google/${REPOSITORY}" "$COMMIT"
 echo "$COMMIT" > tools/imports/rev-$REPOSITORY.txt
 
 ./listfiles.sh closure/closure-library/closure/goog | sort > library_manifest.txt
