@@ -1,3 +1,11 @@
+WARNING
+===========================
+This fork was hacked to support the latest closure compiler.
+Well, almost the latest, as supporting the latest looks difficult because v20200920
+and onwards started using jarjar and that's incompatible with PlovrCompilerOptions.java.
+As it is now, the code does not pass some of its own tests because they are brittle and
+I'm not going to spend time fixing them. I'm only touching this because I need it to build something else.
+
 Plovr: A Closure build tool
 ===========================
 
