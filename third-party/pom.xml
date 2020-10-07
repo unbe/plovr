@@ -26,12 +26,12 @@
         <dependency>
             <groupId>com.google.template</groupId>
             <artifactId>soy</artifactId>
-            <version>2019-09-03</version>
+            <version>2020-08-24</version>
         </dependency>
         <dependency>
             <groupId>com.google.javascript</groupId>
             <artifactId>closure-compiler</artifactId>
-            <version>v20200719</version>
+            <version>v20200927</version>
         </dependency>
         <dependency>
             <groupId>org.seleniumhq.selenium</groupId>
