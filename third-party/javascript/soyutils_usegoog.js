@@ -60,7 +60,7 @@ goog.require('goog.soy.data.SanitizedUri');
 goog.require('goog.string');
 goog.require('goog.string.Const');
 goog.require('soy.checks');
-goog.require('goog.soy');
+goog.requireType('goog.soy');
 
 
 // -----------------------------------------------------------------------------
@@ -68,18 +68,8 @@ goog.require('goog.soy');
 // semantically distinct from the plain text string `"a<b>c"` and smart
 // templates can take that distinction into account.
 
-/**
- * Properties added to all idom HTML / Attributes functions. The TypeScript type
- * inherits this and adds a call signature (which is not really possible here).
- * @typedef {{
- *   toString: function(),
- *   contentKind: !goog.soy.data.SanitizedContentKind
- * }}
- */
-soydata.IdomFunctionMembers;
 
-
-/** @typedef {!soydata.IdomFunctionMembers|!Function} */
+/** @typedef {!goog.soy.data.SanitizedContent|{isInvokableFn: boolean}} */
 soydata.IdomFunction;
 
 /**
@@ -123,7 +113,6 @@ soydata.getContentDir = function(value) {
   }
   return null;
 };
-
 
 /**
  * This class is only a holder for `soydata.SanitizedHtml.from`. Do not
@@ -170,7 +159,7 @@ soydata.SanitizedHtml.from = function(value) {
  * @private
  */
 soydata.$$EMPTY_STRING_ = {
-  VALUE: ''
+  VALUE: '',
 };
 
 
@@ -371,27 +360,32 @@ soydata.VERY_UNSAFE.ordainSanitizedCss =
 
 
 /**
+ * Provides a compact serialization format for the key structure.
+ * @param {?} item
+ * @return {string}
+ */
+soy.$$serializeKey = function(item) {
+  const stringified = String(item);
+  let delimiter;
+  if (item == null) {
+    delimiter = '_';
+  } else if (typeof item === 'number') {
+    delimiter = '#';
+  } else {
+    delimiter = ':';
+  }
+  return `${stringified.length}${delimiter}${stringified}`;
+};
+
+
+
+/**
  * Whether the locale is right-to-left.
  *
  * @type {boolean}
  */
 soy.$$IS_LOCALE_RTL = goog.i18n.bidi.IS_RTL;
 
-
-/**
- * Builds an augmented map. The returned map will contain mappings from both
- * the base map and the additional map. If the same key appears in both, then
- * the value from the additional map will be visible, while the value from the
- * base map will be hidden. The base map will be used, but not modified.
- *
- * @param {!Object} baseMap The original map to augment.
- * @param {!Object} additionalMap A map containing the additional mappings.
- * @return {!Object} An augmented map containing both the original and
- *     additional mappings.
- */
-soy.$$augmentMap = function(baseMap, additionalMap) {
-  return soy.$$assignDefaults(soy.$$assignDefaults({}, additionalMap), baseMap);
-};
 
 
 /**
@@ -469,7 +463,8 @@ soy.$$equals = function(valueOne, valueTwo) {
   // they are tagged with a type for ATTR or HTML. They both need to be
   // the same to be considered structurally equal. Beware, as this is a
   // very expensive function.
-  if (goog.isFunction(valueOne) && goog.isFunction(valueTwo)) {
+  if ((valueOne && valueTwo) &&
+      (valueOne.isInvokableFn && valueTwo.isInvokableFn)) {
     if ((/** @type {?} */ (valueOne)).contentKind !==
         (/** @type {?} */ (valueTwo)).contentKind) {
       return false;
@@ -493,6 +488,13 @@ soy.$$equals = function(valueOne, valueTwo) {
 };
 
 
+/**
+ * @param {?} value
+ * @return {boolean}
+ */
+soy.$$isFunction = function(value) {
+  return typeof value === 'function';
+};
 
 /**
  * Parses the given string into a float. Returns null if parse is unsuccessful.
@@ -911,18 +913,23 @@ soy.$$cleanHtml = function(value, opt_safeTags) {
  * converting entities.
  *
  * The last two parameters are idom functions.
- * @param {string|?goog.soy.data.SanitizedHtml|?soydata.IdomFunction|?Function|
- *     undefined} value
+ * @param {string|?goog.soy.data.SanitizedHtml|?goog.html.SafeHtml|
+ *     ?soydata.IdomFunction|?Function|undefined} value
  * @return {string}
  */
 soy.$$htmlToText = function(value) {
   if (value == null) {
     return '';
   }
-  if (!soydata.isContentKind_(value, goog.soy.data.SanitizedContentKind.HTML)) {
+  var html;
+  if (value instanceof goog.html.SafeHtml) {
+    html = goog.html.SafeHtml.unwrap(value);
+  } else if (soydata.isContentKind_(
+                 value, goog.soy.data.SanitizedContentKind.HTML)) {
+    html = value.toString();
+  } else {
     return goog.asserts.assertString(value);
   }
-  var html = value.toString();
   var text = '';
   var start = 0;
   // Tag name to stop removing contents, e.g. '/script'.
@@ -1233,6 +1240,59 @@ soy.$$escapeHtmlAttributeNospace = function(value) {
   return soy.esc.$$escapeHtmlNospaceHelper(value);
 };
 
+/**
+ * Filters out strings that cannot be valid content in a <script> tag with
+ * non-JS content.
+ *
+ * This disallows `<script`, `</script`, and `<!--` as substrings as well as
+ * prefixes of those strings that occur at the end of the value.  This combined
+ * with a similar rule enforced in the parser ensures that these substrings
+ * cannot occur.
+ *
+ * @param {?} value The value to escape. May not be a string, but the value
+ *     will be coerced to a string.
+ * @return {string} The value coerced to a string or `"zSoyz"` if the input is
+ *    invalid.
+ */
+soy.$$filterHtmlScriptPhrasingData = function(value) {
+  const valueAsString = String(value);
+  /**
+   * Returns whether there is a case insensitive match for needle within
+   * haystack starting at offset, or if haystack ends with a non empty prefix of
+   * needle.
+   * @return {boolean}
+   */
+  const matchPrefixIgnoreCasePastEnd =
+      (/** string */ needle, /** string */ haystack, /** number */ offset) => {
+        goog.asserts.assert(
+            offset >= 0 && offset < haystack.length,
+            'offset must point at a valid character of haystack');
+        goog.asserts.assert(
+            needle === soy.$$strToAsciiLowerCase(needle),
+            'needle must be lowercase');
+        const charsLeft = haystack.length - offset;
+        const charsToScan = Math.min(charsLeft, needle.length);
+        for (let i = 0; i < charsToScan; i++) {
+          if (needle[i] !== soy.$$charToAsciiLowerCase_(haystack[offset + i])) {
+            return false;
+          }
+        }
+        return true;
+      };
+  let start = 0;
+  let indexOfLt;
+  while ((indexOfLt = valueAsString.indexOf('<', start)) != -1) {
+    if (matchPrefixIgnoreCasePastEnd('<script', valueAsString, indexOfLt) ||
+        matchPrefixIgnoreCasePastEnd('</script', valueAsString, indexOfLt) ||
+        matchPrefixIgnoreCasePastEnd('<!--', valueAsString, indexOfLt)) {
+      goog.asserts.fail(
+          'Bad value `%s` for |filterHtmlScriptPhrasingData', [valueAsString]);
+      return 'zSoyz';
+    }
+    start = indexOfLt + 1;
+  }
+  return valueAsString;
+};
 
 /**
  * Filters out strings that cannot be a substring of a valid HTML attribute.
@@ -1708,12 +1768,83 @@ soy.$$isLowSurrogate_ = function(cc) {
  * @param {!IArrayLike<?>} list
  * @param {*} val
  * @return {boolean}
- * @template T
  */
 soy.$$listContains = function(list, val) {
+  return soy.$$listIndexOf(list, val) >= 0;
+};
+
+
+/**
+ * Returns the index of val in list or -1
+ * @param {!IArrayLike<?>} list
+ * @param {*} val
+ * @return {number}
+ */
+soy.$$listIndexOf = function(list, val) {
   return goog.array.findIndex(list, function(el) {
     return soy.$$equals(val, el);
-  }) >= 0;
+  });
+};
+
+
+/**
+ * Returns an array slice of list.
+ * @param {!IArrayLike<T>} list
+ * @param {number} from
+ * @param {?number} to
+ * @return {!IArrayLike<T>}
+ * @template T
+ */
+soy.$$listSlice = function(list, from, to) {
+  return to == null ? goog.array.slice(list, from) :
+                      goog.array.slice(list, from, to);
+};
+
+/**
+ * @param {...T} args
+ * @return {!Array<T>}
+ * @template T
+ */
+soy.$$makeArray = function(...args) {
+  return args;
+};
+
+/**
+ * A helper for list comprehension.
+ * @param {!IArrayLike<T>} list
+ * @param {function(T,number):boolean} filter
+ * @param {function(T,number):V} map
+ * @return {!IArrayLike<V>}
+ * @template T, V
+ */
+soy.$$filterAndMap = function(list, filter, map) {
+  let array = [];
+  for (let i = 0; i < list.length; i++) {
+    if (filter(list[i], i)) {
+      array.push(map(list[i], i));
+    }
+  }
+  return array;
+};
+
+/**
+ * Sorts a list of numbers in numerical order.
+ * @param {!IArrayLike<T>} list
+ * @return {!Array<T>}
+ * @template T extends number
+ */
+soy.$$numberListSort = function(list) {
+  return goog.array.toArray(list).sort((a, b) => a - b);
+};
+
+
+/**
+ * Sorts a list of strings in lexicographic order.
+ * @param {!IArrayLike<string>} list
+ * @return {!Array<string>}
+ */
+soy.$$stringListSort = function(list) {
+  return goog.array.toArray(list).sort();
 };
 
 
@@ -1723,9 +1854,17 @@ soy.$$listContains = function(list, val) {
  * @return {string}
  */
 soy.$$strToAsciiLowerCase = function(s) {
-  return goog.array.map(s, function(c) {
-    return 'A' <= c && c <= 'Z' ? c.toLowerCase() : c;
-  }).join('');
+  return goog.array.map(s, soy.$$charToAsciiLowerCase_).join('');
+};
+
+/**
+ * Lowercases a single character string.
+ * @private
+ * @return {string}
+ */
+soy.$$charToAsciiLowerCase_ = (/** string */ c) => {
+  goog.asserts.assert(c.length === 1);
+  return 'A' <= c && c <= 'Z' ? c.toLowerCase() : c;
 };
 
 
@@ -1738,6 +1877,48 @@ soy.$$strToAsciiUpperCase = function(s) {
   return goog.array.map(s, function(c) {
     return 'a' <= c && c <= 'z' ? c.toUpperCase() : c;
   }).join('');
+};
+
+
+/**
+ * Trims a string.
+ * @param {string} s
+ * @return {string}
+ */
+soy.$$strTrim = function(s) {
+  return s.trim();
+};
+
+/**
+ * Returns whether s starts with val.
+ * @param {string} s
+ * @param {string} val
+ * @return {boolean}
+ */
+soy.$$strStartsWith = function(s, val) {
+  return s.length >= val.length && s.substring(0, val.length) === val;
+};
+
+
+/**
+ * Returns whether s ends with val.
+ * @param {string} s
+ * @param {string} val
+ * @return {boolean}
+ */
+soy.$$strEndsWith = function(s, val) {
+  return s.length >= val.length && s.substring(s.length - val.length) === val;
+};
+
+
+/**
+ * Splits a string.
+ * @param {string} s
+ * @param {string} sep
+ * @return {!Array<string>}
+ */
+soy.$$strSplit = function(s, sep) {
+  return s.split(sep);
 };
 
 
@@ -2054,7 +2235,7 @@ soy.esc.$$ESCAPE_MAP_FOR_NORMALIZE_HTML__AND__ESCAPE_HTML_NOSPACE__AND__NORMALIZ
   '\x85': '\x26#133;',
   '\xa0': '\x26#160;',
   '\u2028': '\x26#8232;',
-  '\u2029': '\x26#8233;'
+  '\u2029': '\x26#8233;',
 };
 
 /**
@@ -2105,7 +2286,7 @@ soy.esc.$$ESCAPE_MAP_FOR_ESCAPE_JS_STRING__AND__ESCAPE_JS_REGEX_ = {
   '\x7d': '\\x7d',
   '\x85': '\\x85',
   '\u2028': '\\u2028',
-  '\u2029': '\\u2029'
+  '\u2029': '\\u2029',
 };
 
 /**
@@ -2149,7 +2330,7 @@ soy.esc.$$ESCAPE_MAP_FOR_ESCAPE_CSS_STRING_ = {
   '\x85': '\\85 ',
   '\xa0': '\\a0 ',
   '\u2028': '\\2028 ',
-  '\u2029': '\\2029 '
+  '\u2029': '\\2029 ',
 };
 
 /**
@@ -2231,7 +2412,7 @@ soy.esc.$$ESCAPE_MAP_FOR_NORMALIZE_URI__AND__FILTER_NORMALIZE_URI__AND__FILTER_N
   '\uff1f': '%EF%BC%9F',
   '\uff20': '%EF%BC%A0',
   '\uff3b': '%EF%BC%BB',
-  '\uff3d': '%EF%BC%BD'
+  '\uff3d': '%EF%BC%BD',
 };
 
 /**
@@ -2290,7 +2471,7 @@ soy.esc.$$MATCHER_FOR_NORMALIZE_URI__AND__FILTER_NORMALIZE_URI__AND__FILTER_NORM
  * A pattern that vets values produced by the named directives.
  * @private {!RegExp}
  */
-soy.esc.$$FILTER_FOR_FILTER_CSS_VALUE_ = /^(?!-*(?:expression|(?:moz-)?binding))(?:(?:[.#]?-?(?:[_a-z0-9-]+)(?:-[_a-z0-9-]+)*-?|(?:rgb|hsl)a?\([0-9.%,\u0020]+\)|-?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[a-z]{1,4}|%)?|!important)(?:\s+|$))*$/i;
+soy.esc.$$FILTER_FOR_FILTER_CSS_VALUE_ = /^(?!-*(?:expression|(?:moz-)?binding))(?:(?:[.#]?-?(?:[_a-z0-9-]+)(?:-[_a-z0-9-]+)*-?|(?:rgb|hsl)a?\([0-9.%,\u0020]+\)|-?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[a-z]{1,4}|%)?|!important)(?:\s*[,\u0020]\s*|$))*$/i;
 
 /**
  * A pattern that vets values produced by the named directives.
