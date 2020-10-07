@@ -130,8 +130,8 @@ public class InputFileHandler extends AbstractGetHandler {
 
     return TOFU.newRenderer("org.plovr.raw")
             .setData(mapData)
-            .setContentKind(SanitizedContent.ContentKind.JS)
-            .render();
+            .renderJs()
+            .toString();
   }
 
   /**

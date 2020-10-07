@@ -321,7 +321,7 @@ public final class Manifest {
       throws CompilationException {
     // Avoid infinite by going depth-first and never revisiting a node.
     if (currentDependencyChain.contains(input)) {
-      throw new CircularDependencyException(input, currentDependencyChain);
+      return;
     }
     currentDependencyChain.add(input);
 

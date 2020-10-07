@@ -124,9 +124,9 @@ public class CompileRequestHandler extends AbstractGetHandler {
           String src = moduleNameToUri.apply(moduleConfig.getRootModule());
           SoyMapData mapData = new SoyMapData("src", src);
           String js = TOFU.newRenderer("org.plovr.loadRootModule")
-              .setContentKind(SanitizedContent.ContentKind.JS)
               .setData(mapData)
-              .render();
+              .renderJs()
+              .toString();
           appendable.append(js);
         } else {
           appendable.append(compilation.getCodeForRootModule(isDebugMode,

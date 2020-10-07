@@ -156,7 +156,7 @@ public class ExtractCommand extends AbstractCommandRunner<ExtractCommandOptions>
           builder
             .setDesc(msg.getDesc())
             .setIsHidden(msg.isHidden())
-            .addSourceLocation(new SourceLocation(msg.getSourceName()))
+            .addSourceLocation(new SourceLocation(msg.getSourceName()), "<none>")
             .setParts(parts)
             .build());
     }

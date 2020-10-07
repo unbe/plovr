@@ -25,7 +25,7 @@ public abstract class AbstractJsInput implements JsInput {
    * to ensure consistency with closurebuilder.py.
    */
   private static final Pattern GOOG_PROVIDE_OR_REQUIRE =
-      Pattern.compile("\\s*goog\\.(module|provide|require)\\(\\s*['\"]([\\w\\.]+)['\"]\\s*\\);?.*");
+      Pattern.compile("\\s*goog\\.(module|provide|require|requireType)\\(\\s*['\"]([\\w\\.]+)['\"]\\s*\\);?.*");
 
   private final String name;
 
